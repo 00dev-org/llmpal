@@ -1,0 +1,57 @@
+{
+  "rules": [
+    "Never use panic directive."
+  ],
+  "models": [
+    {
+      "code": "qwen",
+      "model": "qwen/qwen3-235b-a22b-2507",
+      "provider": "Fireworks",
+      "prompt_cost": 0.22,
+      "completion_cost": 0.88
+    },
+    {
+      "code": "kimi",
+      "model": "moonshotai/kimi-k2",
+      "provider": "Fireworks",
+      "prompt_cost": 0.60,
+      "completion_cost": 2.5
+    },
+    {
+      "code": "ds",
+      "model": "deepseek/deepseek-r1-0528",
+      "provider": "Fireworks",
+      "prompt_cost": 3.00,
+      "completion_cost": 8.00
+    },
+    {
+      "code": "cer",
+      "model": "qwen-3-235b-a22b",
+      "prompt_cost": 0.0,
+      "completion_cost": 0.0,
+      "api_url": "https://api.cerebras.ai/v1/chat/completions",
+      "api_key": "$CEREBRAS_API_KEY",
+      "max_tokens": 40000
+    },
+    {
+      "code": "cerebras",
+      "model": "qwen/qwen3-235b-a22b",
+      "provider": "Cerebras",
+      "prompt_cost": 0.0,
+      "completion_cost": 0.0,
+      "max_tokens": null
+    },
+    {
+      "code": "claude",
+      "model": "anthropic/claude-sonnet-4",
+      "prompt_cost": 3.0,
+      "completion_cost": 15.0
+    },
+    {
+      "code": "mistral",
+      "model": "mistralai/devstral-medium",
+      "prompt_cost": 0.4,
+      "completion_cost": 2.0
+    }
+  ]
+}
