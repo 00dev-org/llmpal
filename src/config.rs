@@ -64,6 +64,7 @@ pub struct ModelConfig {
 pub struct Config {
     pub models: Option<Vec<ModelConfig>>,
     pub rules: Option<Vec<String>>,
+    pub diagnostic: Option<bool>,
 }
 
 fn config_from_path<P: AsRef<std::path::Path>>(path: P) -> Config {
@@ -73,6 +74,7 @@ fn config_from_path<P: AsRef<std::path::Path>>(path: P) -> Config {
         .unwrap_or(Config {
             models: None,
             rules: None,
+            diagnostic: None,
         })
 }
 
@@ -90,6 +92,7 @@ pub fn get_config() -> Config {
     Config {
         models: None,
         rules: None,
+        diagnostic: None,
     }
 }
 
@@ -188,6 +191,7 @@ mod tests {
             let config = Config {
                 models: None,
                 rules: None,
+                diagnostic: None,
             };
             let model_config = get_model_config(&args, &config);
             assert_eq!(model_config.model, DEFAULT_MODEL);
@@ -210,6 +214,7 @@ mod tests {
                     provider: Some("fireworks".to_string()),
                 }]),
                 rules: None,
+                diagnostic: None,
             };
 
             let args = Cli::parse_from(["llmpal", "instruction", "--model", "kimi"]);
@@ -238,11 +243,11 @@ mod tests {
                     provider: None,
                 }]),
                 rules: None,
+                diagnostic: None,
             };
 
             let args = Cli::parse_from(["llmpal", "instruction"]);
             let model_config = get_model_config(&args, &config);
-
             assert_eq!(model_config.model, "other-model");
             assert_eq!(model_config.prompt_cost, 0.5);
             assert_eq!(model_config.completion_cost, 1.0);
@@ -255,6 +260,7 @@ mod tests {
             let config = Config {
                 models: Some(vec![]),
                 rules: None,
+                diagnostic: None,
             };
             let args = Cli::parse_from(["llmpal", "--model", "missing", "instruction"]);
             let model_config = get_model_config(&args, &config);
@@ -305,6 +311,7 @@ mod tests {
             let config = config_from_path(dir.path().join("config.json"));
             assert!(config.models.is_none());
             assert!(config.rules.is_none());
+            assert!(config.diagnostic.is_none());
         }
 
         #[test]
@@ -312,6 +319,7 @@ mod tests {
             let config = config_from_path("nonexistent.json");
             assert!(config.models.is_none());
             assert!(config.rules.is_none());
+            assert!(config.diagnostic.is_none());
         }
     }
 
@@ -320,10 +328,10 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_get_config() {
+        fn test_get_config_with_diagnostic() {
             let temp_dir = tempdir().unwrap();
             let local_config_path = temp_dir.path().join(".llmpal.json");
-            let config_content = "{\n  \"models\": [{\n    \"code\": \"local_code\",\n    \"model\": \"local_model\",\n    \"prompt_cost\": 1.5,\n    \"completion_cost\": 2.5\n  }],\n  \"rules\": [\"rule1\"]\n}";
+            let config_content = "{\n  \"models\": [{\n    \"code\": \"local_code\",\n    \"model\": \"local_model\",\n    \"prompt_cost\": 1.5,\n    \"completion_cost\": 2.5\n  }],\n  \"rules\": [\"rule1\"],\n  \"diagnostic\": true\n}";
             fs::write(&local_config_path, config_content).unwrap();
 
             let config = config_from_path(&local_config_path);
@@ -335,6 +343,7 @@ mod tests {
             assert_eq!(model_config.prompt_cost, 1.5);
             assert_eq!(model_config.completion_cost, 2.5);
             assert_eq!(config.rules.as_ref().unwrap()[0], "rule1");
+            assert!(config.diagnostic.unwrap_or(false));
         }
     }
 }

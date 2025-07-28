@@ -1,4 +1,5 @@
 {
+  "diagnostic": true,
   "rules": [
     "Never use panic directive."
   ],
