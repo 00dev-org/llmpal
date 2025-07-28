@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::error::Error;
-    use mockito::{Mock};
-    use tempfile::TempDir;
-    use llmpal::config::Cli;
     use llmpal::app::run;
+    use llmpal::config::Cli;
+    use mockito::Mock;
+    use std::error::Error;
+    use std::fs;
+    use tempfile::TempDir;
 
     #[tokio::test]
     async fn test_run_method() -> Result<(), Box<dyn Error>> {

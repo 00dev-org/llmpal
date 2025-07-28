@@ -47,7 +47,11 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
     prompt
 }
 
-pub fn build_user_prompt(instruction: &str, files: &[String], output_file: &Option<String>) -> String {
+pub fn build_user_prompt(
+    instruction: &str,
+    files: &[String],
+    output_file: &Option<String>,
+) -> String {
     let mut prompt = String::new();
     prompt.push_str("=== USER INSTRUCTIONS START\n");
     prompt.push_str(instruction);
@@ -60,7 +64,7 @@ pub fn build_user_prompt(instruction: &str, files: &[String], output_file: &Opti
                 continue;
             }
         }
-        
+
         let content = if cfg!(test) {
             String::new()
         } else {
@@ -94,7 +98,7 @@ pub fn parse_llm_response(
 
     for line in resp_text.lines() {
         let trimmed = line.trim();
-        
+
         if trimmed.starts_with("<think>") {
             in_think = true;
             continue;
@@ -106,7 +110,7 @@ pub fn parse_llm_response(
         if in_think {
             continue;
         }
-        
+
         if trimmed == "=== EXPLAIN START ===" {
             in_comment = true;
             continue;
