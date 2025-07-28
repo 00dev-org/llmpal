@@ -2,29 +2,45 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
     let mut prompt = String::new();
 
     prompt.push_str(
-        "Follow user instructions. When asked to make changes, apply changes to given files. \n\
-        When asked to create a file, create it. When asked questions, just answer them without creating or modifying files.\n\
-        When changing files, output an explanation with brief and blunt information about changes.\n\
-        Then output modified files. Always output full contents of changed files.\n\
-        Never propose to output files other than the allowed ones:\n",
+        "You are a non-interactive agent specialized in helping with software development tasks.\n\
+        # Primary workflows:\n\
+        - answering questions\n\
+        - analyzing and explaining contents of provided files\n\
+        - editing and creating files\n\
+        - writing and modifying code\n\n\
+        # Guidelines\n\
+        - You are allowed to provide content only for these files:\n",
     );
 
     for file in allowed_files {
-        prompt.push_str(&format!(" {}\n", file));
+        prompt.push_str(&format!("- {}\n", file));
     }
 
     prompt.push_str(
-        "When the task requires creating files and you are not allowed to create them, mention the issue in the comments section.\n\
-        When asked to create a new file, output to a new file or extract something from other files - only use allowed files.\n\
-        When asked to explain code, answer questions, suggest changes or improvements - output only in the EXPLAIN section without modifying files. \n\
-        Never explain stuff by adding comments to the code unless directly asked to do so.\n\
-        Do not make unnecessary changes in files. Do not add code comments when not requested. Omit files that need no changes. \n\
-        Always use defined output format. Do not output additional information outside of defined schema. \n\
-        Do not change file formatting (spaces, tabs, etc.). New code should have formatting and style consistent with existing code.\n\n",
+        "- When you need to create another file to fulfill the user's task, let the user know why and provide a path to the file.\n\
+        - Never create or modify any files when the user is only asking questions.\n\
+        - When asked to modify a file, provide **full** contents of the file after modification.\n\
+        - Always provide a brief explanation for your actions.\n\
+        - Always omit files that need no changes.\n\
+        - Always use the defined output format.\n\
+        - Never output additional information outside of defined schema.\n\
+        - Never provide partial files in outputs.\n\
+        - Never add any comments to the code, unless you are directly asked to do so.\n\
+        - Never make unrequested changes in files.\n\
+        - Never add code comments when not requested.\n\
+        - Never change file formatting (spaces, tabs, etc.). New code should have formatting and style consistent with existing code.\n\n",
     );
 
+    if !rules.is_empty() {
+        prompt.push_str("# Additional rules\n");
+        for rule in rules {
+            prompt.push_str(&format!("- {}\n", rule));
+        }
+        prompt.push_str("\n");
+    }
+
     prompt.push_str(
-        "# Output format - example\n\
+        "# Output format\n\
          === EXPLAIN START ===\n\
          Brief explanations and answers to questions\n\
          === EXPLAIN END ===\n\
@@ -36,14 +52,6 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
          === file2.txt === END ===\n\n",
     );
 
-    if !rules.is_empty() {
-        prompt.push_str("=== RULES START ===\n");
-        for rule in rules {
-            prompt.push_str(&format!("{}\n", rule));
-        }
-        prompt.push_str("=== RULES END ===\n");
-    }
-
     prompt
 }
 
@@ -53,9 +61,10 @@ pub fn build_user_prompt(
     output_file: &Option<String>,
 ) -> String {
     let mut prompt = String::new();
-    prompt.push_str("=== USER INSTRUCTIONS START\n");
+    prompt.push_str("# User instructions\n");
     prompt.push_str(instruction);
-    prompt.push_str("\n=== USER INSTRUCTIONS END\n\n");
+
+    prompt.push_str("\n\n");
     prompt.push_str("# User input files:\n");
 
     for f in files {
@@ -160,9 +169,8 @@ mod tests {
         let instruction = "test";
         let files = vec![];
         let prompt = build_user_prompt(instruction, &files, &None);
-        assert!(prompt.contains("=== USER INSTRUCTIONS START"));
+        assert!(prompt.contains("# User instructions"));
         assert!(prompt.contains("test"));
-        assert!(prompt.contains("=== USER INSTRUCTIONS END"));
         assert!(prompt.contains("# User input files:"));
     }
 
@@ -171,6 +179,7 @@ mod tests {
         let allowed_files = vec!["file1.rs".to_string()];
         let rules = vec![];
         let prompt = build_system_prompt(&allowed_files, &rules);
-        assert!(prompt.contains("file1.rs\nWhen the task requires creating files"));
+        assert!(prompt.contains("file1.rs"));
+        assert!(prompt.contains("When you need to create another file"));
     }
 }
