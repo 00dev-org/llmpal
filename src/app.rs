@@ -111,7 +111,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
 
     let log_output = if let Some(provider) = &model_config.provider {
         format!(
-            "Model: {} [provider: {}] | URL: {} | Cost: ${:.4}/1M prompt, ${:.4}/1M completion | Estimated input tokens: {}",
+            "# Model: {} [provider: {}] | URL: {} | Cost: ${:.4}/1M prompt, ${:.4}/1M completion | Estimated input tokens: {}",
             model_config.model,
             provider,
             api_url,
@@ -121,7 +121,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
         )
     } else {
         format!(
-            "Model: {} | URL: {} | Cost: ${:.4}/1M prompt, ${:.4}/1M completion | Estimated input tokens: {}",
+            "# Model: {} | URL: {} | Cost: ${:.4}/1M prompt, ${:.4}/1M completion | Estimated input tokens: {}",
             model_config.model, api_url, model_config.prompt_cost, model_config.completion_cost, estimated_input_tokens
         )
     };
@@ -206,7 +206,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
                 model_config.model.clone()
             };
             eprintln!(
-                "Model: {} | Prompt tokens: {} (${:.4}) | Completion tokens: {} (${:.4}) | Total tokens: {} (${:.4}) | Time: {:.2}s | Speed: {:.2} tokens/s",
+                "# Model: {} | Prompt tokens: {} (${:.4}) | Completion tokens: {} (${:.4}) | Total tokens: {} (${:.4}) | Time: {:.2}s | Speed: {:.2} tokens/s",
                 model_string,
                 prompt_tokens,
                 prompt_cost_val,
@@ -223,7 +223,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
                 .unwrap_or(config::DEFAULT_MAX_TOKENS) as u64;
             if completion_tokens >= max_tokens_allowed {
                 eprintln!(
-                    "Warning: Completion tokens ({}) equal or exceed max token limit ({}). Output might be missing or incomplete.",
+                    "# Warning: Completion tokens ({}) equal or exceed max token limit ({}). Output might be missing or incomplete.",
                     completion_tokens, max_tokens_allowed
                 );
             }
