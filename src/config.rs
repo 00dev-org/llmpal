@@ -1,4 +1,5 @@
 use clap::Parser;
+use serde::Deserialize;
 use std::fs;
 
 pub const OPEN_ROUTER_URL: &str = "https://openrouter.ai/api/v1/chat/completions";
@@ -48,7 +49,7 @@ pub struct Cli {
     pub instruction: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ModelConfig {
     pub code: String,
     pub model: String,
@@ -60,7 +61,7 @@ pub struct ModelConfig {
     pub provider: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize)]
 pub struct Config {
     pub models: Option<Vec<ModelConfig>>,
     pub rules: Option<Vec<String>>,
@@ -78,22 +79,63 @@ fn config_from_path<P: AsRef<std::path::Path>>(path: P) -> Config {
         })
 }
 
-pub fn get_config() -> Config {
-    let local_path = std::path::Path::new(".llmpal.json");
-    if local_path.exists() {
-        return config_from_path(local_path);
-    }
+fn merge_configs(home_config: Config, local_config: Config) -> Config {
+    let diagnostic = local_config.diagnostic.or(home_config.diagnostic);
 
-    if let Ok(home) = std::env::var("HOME") {
-        let home_path = std::path::PathBuf::from(home).join(".llmpal.json");
-        return config_from_path(home_path);
-    }
+    let rules = match (home_config.rules, local_config.rules) {
+        (Some(mut home_rules), Some(local_rules)) => {
+            home_rules.extend(local_rules);
+            Some(home_rules)
+        }
+        (Some(home_rules), None) => Some(home_rules),
+        (None, Some(local_rules)) => Some(local_rules),
+        (None, None) => None,
+    };
+
+    let models = match (home_config.models, local_config.models) {
+        (Some(home_models), Some(local_models)) => {
+            let mut combined_models = local_models.clone();
+            let mut seen_codes = std::collections::HashSet::new();
+
+            for model in &local_models {
+                seen_codes.insert(&model.code);
+            }
+
+            for model in home_models {
+                if !seen_codes.contains(&model.code) {
+                    combined_models.push(model);
+                }
+            }
+
+            Some(combined_models)
+        }
+        (Some(home_models), None) => Some(home_models),
+        (None, Some(local_models)) => Some(local_models),
+        (None, None) => None,
+    };
 
     Config {
-        models: None,
-        rules: None,
-        diagnostic: None,
+        models,
+        rules,
+        diagnostic,
     }
+}
+
+pub fn get_config() -> Config {
+    let home_config = if let Ok(home) = std::env::var("HOME") {
+        let home_path = std::path::PathBuf::from(home).join(".llmpal.json");
+        config_from_path(home_path)
+    } else {
+        Config {
+            models: None,
+            rules: None,
+            diagnostic: None,
+        }
+    };
+
+    let local_config = config_from_path(".llmpal.json");
+
+    merge_configs(home_config, local_config)
 }
 
 fn get_selected_model_code(args: &Cli, config: &Config) -> String {
@@ -344,6 +386,86 @@ mod tests {
             assert_eq!(model_config.completion_cost, 2.5);
             assert_eq!(config.rules.as_ref().unwrap()[0], "rule1");
             assert!(config.diagnostic.unwrap_or(false));
+        }
+    }
+
+    #[cfg(test)]
+    mod config_merging {
+        use super::*;
+
+        #[test]
+        fn test_merge_configs_overrides_local() {
+            let home_config = Config {
+                models: Some(vec![
+                    ModelConfig {
+                        code: "home1".to_string(),
+                        model: "home1-model".to_string(),
+                        prompt_cost: 1.0,
+                        completion_cost: 2.0,
+                        api_url: None,
+                        api_key: None,
+                        max_tokens: None,
+                        provider: None,
+                    },
+                    ModelConfig {
+                        code: "shared".to_string(),
+                        model: "home-shared".to_string(),
+                        prompt_cost: 1.0,
+                        completion_cost: 2.0,
+                        api_url: None,
+                        api_key: None,
+                        max_tokens: None,
+                        provider: None,
+                    },
+                ]),
+                rules: Some(vec!["home-rule1".to_string(), "home-rule2".to_string()]),
+                diagnostic: Some(false),
+            };
+
+            let local_config = Config {
+                models: Some(vec![
+                    ModelConfig {
+                        code: "local1".to_string(),
+                        model: "local1-model".to_string(),
+                        prompt_cost: 1.5,
+                        completion_cost: 2.5,
+                        api_url: None,
+                        api_key: None,
+                        max_tokens: None,
+                        provider: None,
+                    },
+                    ModelConfig {
+                        code: "shared".to_string(),
+                        model: "local-shared".to_string(),
+                        prompt_cost: 1.5,
+                        completion_cost: 2.5,
+                        api_url: None,
+                        api_key: None,
+                        max_tokens: None,
+                        provider: None,
+                    },
+                ]),
+                rules: Some(vec!["local-rule1".to_string()]),
+                diagnostic: Some(true),
+            };
+
+            let merged = merge_configs(home_config, local_config);
+
+            assert_eq!(merged.diagnostic, Some(true));
+            assert_eq!(
+                merged.rules.unwrap(),
+                vec!["home-rule1", "home-rule2", "local-rule1"]
+            );
+
+            let models = merged.models.unwrap();
+            assert_eq!(models.len(), 3);
+
+            assert_eq!(models[0].code, "local1");
+            assert_eq!(models[1].code, "shared");
+            assert_eq!(models[2].code, "home1");
+            assert_eq!(models[0].model, "local1-model");
+            assert_eq!(models[1].model, "local-shared");
+            assert_eq!(models[2].model, "home1-model");
         }
     }
 }
