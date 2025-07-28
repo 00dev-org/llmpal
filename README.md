@@ -62,7 +62,7 @@ All configurations should be in `.llmpal.json` file placed in the project root o
 ```
 
 ### Global Options
-When the configuration is not placed in `.llmpal.json`, you can also specify models in your home directory's `.llmpal.json` for global configuration.
+The home directory's `.llmpal.json` can provide global configurations that merge with local project settings. When both files exist, local configuration takes precedence for conflicting fields.
 
 ### Model Configuration Fields
 - `code`: Short identifier for the model (used with `-m` flag)
