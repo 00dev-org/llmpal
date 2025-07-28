@@ -38,6 +38,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
 
     let mut allowed_files_set: HashSet<String> = HashSet::new();
     let mut input_files: Vec<String> = Vec::new();
+    let mut diagnostic_log = String::new();
 
     for file in &args.files {
         let path = Path::new(file);
@@ -107,16 +108,14 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     }
 
     if config.diagnostic.unwrap_or_default() {
-        let contents = format!(
+        diagnostic_log.push_str(&format!(
             "================================================================\n\
             === SYSTEM PROMPT ===\n\
             {}\n\n\
             === USER PROMPT ===\n\
             {}\n",
             system_prompt, user_prompt
-        );
-
-        utils::write_diagnostic_log(&contents)?;
+        ));
     }
 
     let api_url = model_config
@@ -178,8 +177,8 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     }
 
     if config.diagnostic.unwrap_or_default() {
-        let contents = format!("=== RESPONSE ===\n{}\n\n", resp_text);
-        utils::write_diagnostic_log(&contents)?;
+        diagnostic_log.push_str(&format!("=== RESPONSE ===\n{}\n\n", resp_text));
+        utils::write_diagnostic_log(&diagnostic_log)?;
     }
 
     let (comments, files, _) =

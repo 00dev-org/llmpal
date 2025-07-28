@@ -1,6 +1,5 @@
 use crate::app::LlmpalError;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 
 pub fn write_diagnostic_log(content: &str) -> Result<(), LlmpalError> {
@@ -18,14 +17,6 @@ pub fn write_diagnostic_log(content: &str) -> Result<(), LlmpalError> {
     }
 
     let log_path = diag_dir.join("prompt.log");
-
-    fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_path)
-        .map_err(|e| LlmpalError::FileError(format!("failed to open diagnostic log: {}", e)))?
-        .write_all(content.as_bytes())
-        .map_err(|e| LlmpalError::FileError(format!("failed to write diagnostic log: {}", e)))?;
-
-    Ok(())
+    fs::write(&log_path, content)
+        .map_err(|e| LlmpalError::FileError(format!("failed to write diagnostic log: {}", e)))
 }
