@@ -25,7 +25,7 @@ It is designed to work well only on a small set of files, making small improveme
 3. Build: `cd llmpal && cargo install --path .`
 
 ## Configuration
-All configurations should be in `.llmpal.json` file placed in the project root or home directory. Configuration includes two main sections: models and rules.
+All configurations should be in `.llmpal.json` file placed in the project root or home directory. Configuration includes three main parameters: models, rules, and diagnostic.
 
 ### Defaults
 - API endpoint: `https://openrouter.ai/api/v1/chat/completions`
@@ -36,6 +36,7 @@ All configurations should be in `.llmpal.json` file placed in the project root o
 ### Configuration Structure
 ```json
 {
+  "diagnostic": true,
   "rules": [
     "Never use panic directive."
   ],
@@ -84,11 +85,9 @@ Model selection follows the priority:
 2. First model in config file if no `-m` flag
 3. Default model `moonshotai/kimi-k2` if no config available
 
-### Rules
-Rules restrict LLM behavior or enforce code style guidelines. Examples:
-- "Never use panic directive"
-- "All files must be 4-space indented"
-- "Use snake_case for variable names"
+### Parameters Reference
+- **rules**: Array of rules that appear in the LLM system prompt, influencing LLM behavior
+- **diagnostic**: When true, logs LLM prompts and responses to `$HOME/.llmpal/prompt.log`
 
 ## Usage
 ### Important File Restrictions

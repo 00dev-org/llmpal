@@ -1,10 +1,11 @@
+use crate::{config, llm, spinner, utils};
 use reqwest;
 use serde_json;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
-use crate::{config, llm, spinner};
 
 #[derive(Debug)]
 pub enum LlmpalError {
@@ -39,13 +40,15 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     let mut input_files: Vec<String> = Vec::new();
 
     for file in &args.files {
-        let path = std::path::Path::new(file);
+        let path = Path::new(file);
         if path.is_dir() {
-            let entries = std::fs::read_dir(path)
-                .map_err(|e| LlmpalError::FileError(format!("Cannot read directory '{}': {}", file, e)))?;
+            let entries = fs::read_dir(path).map_err(|e| {
+                LlmpalError::FileError(format!("Cannot read directory '{}': {}", file, e))
+            })?;
             for entry in entries {
-                let entry = entry
-                    .map_err(|e| LlmpalError::FileError(format!("Error reading entry in '{}': {}", file, e)))?;
+                let entry = entry.map_err(|e| {
+                    LlmpalError::FileError(format!("Error reading entry in '{}': {}", file, e))
+                })?;
                 let entry_path = entry.path();
                 if entry_path.is_dir() {
                     continue;
@@ -83,7 +86,8 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
             .max_tokens
             .unwrap_or(config::DEFAULT_MAX_TOKENS),
         model_config.api_url.is_none(),
-    ).map_err(|e| LlmpalError::SerializeError(e.to_string()))?;
+    )
+    .map_err(|e| LlmpalError::SerializeError(e.to_string()))?;
 
     if args.trace {
         eprintln!("::DEBUG:: === RAW LLM REQUEST ===");
@@ -102,12 +106,26 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
         eprintln!("::DEBUG:: {}", user_prompt);
     }
 
+    if config.diagnostic.unwrap_or_default() {
+        let contents = format!(
+            "================================================================\n\
+            === SYSTEM PROMPT ===\n\
+            {}\n\n\
+            === USER PROMPT ===\n\
+            {}\n",
+            system_prompt, user_prompt
+        );
+
+        utils::write_diagnostic_log(&contents)?;
+    }
+
     let api_url = model_config
         .api_url
         .clone()
         .unwrap_or_else(|| config::OPEN_ROUTER_URL.to_string());
 
-    let estimated_input_tokens = estimate_token_count(&system_prompt) + estimate_token_count(&user_prompt);
+    let estimated_input_tokens =
+        estimate_token_count(&system_prompt) + estimate_token_count(&user_prompt);
 
     let log_output = if let Some(provider) = &model_config.provider {
         format!(
@@ -122,7 +140,11 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     } else {
         format!(
             "# Model: {} | URL: {} | Cost: ${:.4}/1M prompt, ${:.4}/1M completion | Estimated input tokens: {}",
-            model_config.model, api_url, model_config.prompt_cost, model_config.completion_cost, estimated_input_tokens
+            model_config.model,
+            api_url,
+            model_config.prompt_cost,
+            model_config.completion_cost,
+            estimated_input_tokens
         )
     };
 
@@ -155,11 +177,13 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
         eprintln!("::DEBUG:: {}", resp_text);
     }
 
-    let loading_parse = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-    let spinner_parse_handle = spinner::setup_spinner(loading_parse.clone(), Some("Analyzing LLM response"));
+    if config.diagnostic.unwrap_or_default() {
+        let contents = format!("=== RESPONSE ===\n{}\n\n", resp_text);
+        utils::write_diagnostic_log(&contents)?;
+    }
 
-    let (comments, files, _) = llm::parse_llm_response(&resp_text)
-        .map_err(|e| LlmpalError::ParseError(e))?;
+    let (comments, files, _) =
+        llm::parse_llm_response(&resp_text).map_err(|e| LlmpalError::ParseError(e))?;
 
     for (path, _) in &files {
         if !allowed_files.contains(path) {
@@ -171,23 +195,20 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
             if let Err(e) = fs::write(&filename, &resp_text) {
                 eprintln!("Failed to save dump: {}", e);
             }
-            loading_parse.store(false, std::sync::atomic::Ordering::Relaxed);
-            spinner_parse_handle.join().unwrap();
-            return Err(LlmpalError::FileError(format!("attempting to write to disallowed file: {}", path)));
+            return Err(LlmpalError::FileError(format!(
+                "attempting to write to disallowed file: {}",
+                path
+            )));
         }
     }
-
-    loading_parse.store(false, std::sync::atomic::Ordering::Relaxed);
-    spinner_parse_handle.join().unwrap();
 
     if !comments.is_empty() {
         println!("{}", comments);
     }
 
     for (path, content) in files.iter() {
-        fs::write(path, content).map_err(|e| {
-            LlmpalError::FileError(format!("writing file '{}': {}", path, e))
-        })?;
+        fs::write(path, content)
+            .map_err(|e| LlmpalError::FileError(format!("writing file '{}': {}", path, e)))?;
     }
 
     let usage = &res["usage"];
