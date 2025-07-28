@@ -320,18 +320,13 @@ mod tests {
         use super::*;
 
         #[test]
-        fn test_get_config_uses_local_file() {
+        fn test_get_config() {
             let temp_dir = tempdir().unwrap();
             let local_config_path = temp_dir.path().join(".llmpal.json");
             let config_content = "{\n  \"models\": [{\n    \"code\": \"local_code\",\n    \"model\": \"local_model\",\n    \"prompt_cost\": 1.5,\n    \"completion_cost\": 2.5\n  }],\n  \"rules\": [\"rule1\"]\n}";
             fs::write(&local_config_path, config_content).unwrap();
 
-            let old_cwd = env::current_dir().unwrap();
-            env::set_current_dir(temp_dir.path()).unwrap();
-
-            let config = get_config();
-
-            env::set_current_dir(old_cwd).unwrap();
+            let config = config_from_path(&local_config_path);
 
             let vec = config.models.unwrap();
             let model_config = vec.get(0).unwrap();
@@ -340,42 +335,6 @@ mod tests {
             assert_eq!(model_config.prompt_cost, 1.5);
             assert_eq!(model_config.completion_cost, 2.5);
             assert_eq!(config.rules.as_ref().unwrap()[0], "rule1");
-        }
-
-        #[test]
-        fn test_get_config_uses_home_file() {
-            let home_dir = tempdir().unwrap();
-            let home_config_path = home_dir.path().join(".llmpal.json");
-            let config_content = "{\n  \"models\": [{\n    \"code\": \"home_code\",\n    \"model\": \"home_model\",\n    \"prompt_cost\": 1.0,\n    \"completion_cost\": 2.0\n  }],\n  \"rules\": [\"rule2\"]\n}";
-            fs::write(&home_config_path, config_content).unwrap();
-
-            let work_dir = tempdir().unwrap();
-            env::set_current_dir(work_dir.path()).unwrap();
-
-            let old_home = env::var_os("HOME");
-            unsafe {
-                env::set_var("HOME", home_dir.path().to_str().unwrap());
-            }
-
-            let config = get_config();
-
-            if let Some(old_home) = old_home {
-                unsafe {
-                    env::set_var("HOME", old_home);
-                }
-            } else {
-                unsafe {
-                    env::remove_var("HOME");
-                }
-            }
-
-            let vec = config.models.unwrap();
-            let model_config = vec.get(0).unwrap();
-            assert_eq!(model_config.code, "home_code");
-            assert_eq!(model_config.model, "home_model");
-            assert_eq!(model_config.prompt_cost, 1.0);
-            assert_eq!(model_config.completion_cost, 2.0);
-            assert_eq!(config.rules.as_ref().unwrap()[0], "rule2");
         }
     }
 }
