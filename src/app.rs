@@ -4,6 +4,7 @@ use serde_json;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
+use std::io::{self, Write};
 use std::path::Path;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -125,6 +126,27 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
 
     let estimated_input_tokens =
         estimate_token_count(&system_prompt) + estimate_token_count(&user_prompt);
+
+    let max_tokens_allowed = model_config
+        .max_tokens
+        .unwrap_or(config::DEFAULT_MAX_TOKENS);
+
+    if estimated_input_tokens > max_tokens_allowed {
+        eprintln!(
+            "\n# WARNING: Estimated token count ({}) exceeds max token limit ({})",
+            estimated_input_tokens, max_tokens_allowed
+        );
+        eprint!("Proceed anyway? (y/N): ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim().to_lowercase();
+
+        if input != "y" && input != "yes" {
+            return Ok(());
+        }
+    }
 
     let log_output = if let Some(provider) = &model_config.provider {
         format!(
