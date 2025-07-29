@@ -1,3 +1,4 @@
+use crate::config::Cli;
 use crate::{config, llm, spinner, utils};
 use reqwest;
 use serde_json;
@@ -37,39 +38,31 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
 
     let model_config = config::get_model_config(args, &config);
 
-    let mut allowed_files_set: HashSet<String> = HashSet::new();
-    let mut input_files: Vec<String> = Vec::new();
     let mut diagnostic_log = String::new();
 
-    for file in &args.files {
-        let path = Path::new(file);
-        if path.is_dir() {
-            let entries = fs::read_dir(path).map_err(|e| {
-                LlmpalError::FileError(format!("Cannot read directory '{}': {}", file, e))
-            })?;
-            for entry in entries {
-                let entry = entry.map_err(|e| {
-                    LlmpalError::FileError(format!("Error reading entry in '{}': {}", file, e))
-                })?;
-                let entry_path = entry.path();
-                if entry_path.is_dir() {
-                    continue;
-                }
-                if let Some(entry_str) = entry_path.as_os_str().to_str() {
-                    allowed_files_set.insert(entry_str.to_string());
-                    input_files.push(entry_str.to_string());
-                }
-            }
-        } else {
-            allowed_files_set.insert(file.clone());
-            input_files.push(file.clone());
-        }
-    }
+    let (input_files, allowed_files) = prepare_files(&args)?;
 
-    if let Some(output) = &args.output {
-        allowed_files_set.insert(output.clone());
-    }
-    let allowed_files: Vec<String> = allowed_files_set.into_iter().collect();
+    let instruction = match (&args.instruction, &args.instruction_file) {
+        (Some(instr), None) => instr.clone(),
+        (None, Some(file_path)) => fs::read_to_string(file_path).map_err(|e| {
+            LlmpalError::FileError(format!(
+                "Cannot read instruction file '{}': {}",
+                file_path, e
+            ))
+        })?,
+        (Some(instr), Some(_)) => {
+            eprintln!(
+                "> Warning: Both inline instruction and instruction file provided. Using inline instruction."
+            );
+            instr.clone()
+        }
+        (None, None) => {
+            return Err(LlmpalError::FileError(
+                "Instructions must be provided either as positional argument or via -i flag"
+                    .to_string(),
+            ));
+        }
+    };
 
     let api_key = model_config
         .api_key
@@ -77,7 +70,7 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
         .ok_or(LlmpalError::ApiKeyMissing)?;
 
     let system_prompt = llm::build_system_prompt(&allowed_files, &rules);
-    let user_prompt = llm::build_user_prompt(&args.instruction, &input_files, &args.output);
+    let user_prompt = llm::build_user_prompt(&instruction, &input_files, &args.output);
 
     let body = build_request(
         &model_config.model,
@@ -206,6 +199,10 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     let (comments, files, _) =
         llm::parse_llm_response(&resp_text).map_err(|e| LlmpalError::ParseError(e))?;
 
+    if comments.is_empty() && files.is_empty() {
+        eprintln!(">> Missing or malformed LLM response. Enable diagnostics and check logs.");
+    }
+
     for (path, _) in &files {
         if !allowed_files.contains(path) {
             let timestamp = SystemTime::now()
@@ -273,6 +270,42 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     }
 
     Ok(())
+}
+
+fn prepare_files(args: &&Cli) -> Result<(Vec<String>, Vec<String>), LlmpalError> {
+    let mut allowed_files_set: HashSet<String> = HashSet::new();
+    let mut input_files: Vec<String> = Vec::new();
+
+    for file in &args.files {
+        let path = Path::new(file);
+        if path.is_dir() {
+            let entries = fs::read_dir(path).map_err(|e| {
+                LlmpalError::FileError(format!("Cannot read directory '{}': {}", file, e))
+            })?;
+            for entry in entries {
+                let entry = entry.map_err(|e| {
+                    LlmpalError::FileError(format!("Error reading entry in '{}': {}", file, e))
+                })?;
+                let entry_path = entry.path();
+                if entry_path.is_dir() {
+                    continue;
+                }
+                if let Some(entry_str) = entry_path.as_os_str().to_str() {
+                    allowed_files_set.insert(entry_str.to_string());
+                    input_files.push(entry_str.to_string());
+                }
+            }
+        } else {
+            allowed_files_set.insert(file.clone());
+            input_files.push(file.clone());
+        }
+    }
+
+    if let Some(output) = &args.output {
+        allowed_files_set.insert(output.clone());
+    }
+    let allowed_files: Vec<String> = allowed_files_set.into_iter().collect();
+    Ok((input_files, allowed_files))
 }
 
 pub async fn send_api_request(
