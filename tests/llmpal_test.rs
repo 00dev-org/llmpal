@@ -38,8 +38,7 @@ mod tests {
         let mock_response = serde_json::json!({
             "choices": [{
                 "message": {
-                    "content": format!("=== EXPLAIN START ===\nTest explanation\n=== EXPLAIN END ===\n=== {} === START ===\nmodified content\n=== {} === END ===",
-                        &test_file_path.to_string_lossy(),
+                    "content": format!("<explain>\nTest explanation\n</explain>\n<file path=\"{}\">\nmodified content\n</file>",
                         &test_file_path.to_string_lossy(),
                     )
                 }
@@ -59,12 +58,13 @@ mod tests {
             .await;
 
         let args = Cli {
-            instruction: "Test instruction".to_string(),
+            instruction: Option::from("Test instruction".to_string()),
             files: vec![test_file_path.to_str().unwrap().to_string()],
             model: None,
             output: None,
             verbose: false,
             trace: false,
+            instruction_file: None,
         };
 
         let result = run(&args).await;

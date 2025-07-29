@@ -43,20 +43,20 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
         "# Output format\n\
          You must follow this output format exactly. Deviations will be rejected.\n\
          The response must start with:\n\
-         === EXPLAIN START ===\n\
+         <explain>\n\
          Brief explanations and answers to questions\n\
-         === EXPLAIN END ===\n\
+         </explain>\n\
          Then, for each file you are modifying or creating:\n\
-         === filename === START ===\n\
+         <file path=\"path_to_file\">\n\
          full file content\n\
-         === filename === END ===\n\n\
+         </file>\n\n\
          Example:\n\
-         === EXPLAIN START ===\n\
+         <explain>\n\
          I'm updating the build_system_prompt to reinforce format compliance.\n\
-         === EXPLAIN END ===\n\
-         === src/llm.rs === START ===\n\
+         </explain>\n\
+         <file path=\"src/llm.rs\">\n\
          updated content of the file\n\
-         === src/llm.rs === END ===\n\n",
+         </file>\n\n",
     );
 
     prompt
@@ -90,10 +90,10 @@ pub fn build_user_prompt(
             })
         };
         prompt.push_str(&format!(
-            "=== {} === START ===\n\
-             {}\
-             \n=== {} === END ===\n",
-            f, content, f
+            "<file path=\"{}\">\n\
+             {}\n\
+             </file>\n",
+            f, content
         ));
     }
 
@@ -103,13 +103,13 @@ pub fn build_user_prompt(
 pub fn parse_llm_response(
     resp_text: &str,
 ) -> Result<(String, Vec<(String, String)>, String), String> {
-    let mut in_comment = false;
-    let mut in_file = false;
     let mut in_think = false;
+    let mut in_explain = false;
+    let mut in_file = false;
     let mut current_path = String::new();
     let mut current_file = Vec::new();
     let mut files_to_write = Vec::new();
-    let mut comments = Vec::new();
+    let mut explanations = Vec::new();
     let mut remaining = Vec::new();
 
     for line in resp_text.lines() {
@@ -127,26 +127,38 @@ pub fn parse_llm_response(
             continue;
         }
 
-        if trimmed == "=== EXPLAIN START ===" {
-            in_comment = true;
+        if trimmed.starts_with("<explain>") {
+            in_explain = true;
             continue;
         }
-        if trimmed == "=== EXPLAIN END ===" {
-            in_comment = false;
+        if trimmed.starts_with("</explain>") {
+            in_explain = false;
             continue;
         }
-        if in_comment {
-            comments.push(line.to_string());
+        if in_explain {
+            explanations.push(line.to_string());
             continue;
         }
-        if line.starts_with("=== ") && line.ends_with(" === START ===") {
+
+        if trimmed.starts_with("<file") && trimmed.ends_with(">") {
             in_file = true;
-            let p = &line[4..line.len() - 14];
-            current_path = p.to_string();
+            if let Some(pos) = trimmed.find("path=\"") {
+                let path_start = pos + 6;
+                if path_start < trimmed.len() {
+                    let slice = &trimmed[path_start..];
+                    if let Some(end) = slice.find('"') {
+                        let path_end = path_start + end;
+                        current_path = (&trimmed[path_start..path_end]).parse().unwrap();
+                        current_file.clear();
+                        continue;
+                    }
+                }
+            }
+            current_path = String::new();
             current_file.clear();
             continue;
         }
-        if line.starts_with("=== ") && line.ends_with(" === END ===") {
+        if trimmed.starts_with("</file>") {
             in_file = false;
             if !current_path.is_empty() {
                 files_to_write.push((current_path.clone(), current_file.join("\n")));
@@ -164,7 +176,11 @@ pub fn parse_llm_response(
         return Err("Error: unexpected end of response while parsing a file section".to_string());
     }
 
-    Ok((comments.join("\n"), files_to_write, remaining.join("\n")))
+    Ok((
+        explanations.join("\n"),
+        files_to_write,
+        remaining.join("\n"),
+    ))
 }
 
 #[cfg(test)]

@@ -46,7 +46,14 @@ pub struct Cli {
     )]
     pub model: Option<String>,
     #[arg(value_name = "INSTRUCTIONS", help = "Instructions for the LLM.")]
-    pub instruction: String,
+    pub instruction: Option<String>,
+    #[arg(
+        long,
+        short = 'i',
+        value_name = "INSTRUCTION_FILE",
+        help = "Path to a text file containing instructions for the LLM"
+    )]
+    pub instruction_file: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -215,11 +222,19 @@ mod tests {
                 "test instruction",
             ]);
             assert_eq!(cli.files, vec!["test.txt"]);
-            assert_eq!(cli.instruction, "test instruction");
+            assert_eq!(cli.instruction, Some("test instruction".to_string()));
             assert!(cli.verbose);
             assert!(cli.trace);
             assert_eq!(cli.output, Some("out.txt".to_string()));
             assert_eq!(cli.model, Some("test-model".to_string()));
+        }
+
+        #[test]
+        fn test_cli_parsing_with_instruction_file() {
+            let cli = Cli::parse_from(["llmpal", "-f", "test.txt", "-i", "instructions.txt"]);
+            assert_eq!(cli.files, vec!["test.txt"]);
+            assert_eq!(cli.instruction, None);
+            assert_eq!(cli.instruction_file, Some("instructions.txt".to_string()));
         }
     }
 
