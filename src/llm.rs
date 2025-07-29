@@ -22,8 +22,8 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
         - When asked to modify a file, provide **full** contents of the file after modification.\n\
         - Always provide a brief explanation for your actions.\n\
         - Always omit files that need no changes.\n\
-        - Always use the defined output format.\n\
-        - Never output additional information outside of defined schema.\n\
+        - You MUST strictly follow the defined output format. Never deviate from it.\n\
+        - Never output additional information outside of the defined schema.\n\
         - Never provide partial files in outputs.\n\
         - Never add any comments to the code, unless you are directly asked to do so.\n\
         - Never make unrequested changes in files.\n\
@@ -41,15 +41,22 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
 
     prompt.push_str(
         "# Output format\n\
+         You must follow this output format exactly. Deviations will be rejected.\n\
+         The response must start with:\n\
          === EXPLAIN START ===\n\
          Brief explanations and answers to questions\n\
          === EXPLAIN END ===\n\
-         === file1.txt === START ===\n\
-         edited file\n\
-         === file1.txt === END ===\n\
-         === file2.txt === START ===\n\
-         edited file\n\
-         === file2.txt === END ===\n\n",
+         Then, for each file you are modifying or creating:\n\
+         === filename === START ===\n\
+         full file content\n\
+         === filename === END ===\n\n\
+         Example:\n\
+         === EXPLAIN START ===\n\
+         I'm updating the build_system_prompt to reinforce format compliance.\n\
+         === EXPLAIN END ===\n\
+         === src/llm.rs === START ===\n\
+         updated content of the file\n\
+         === src/llm.rs === END ===\n\n",
     );
 
     prompt

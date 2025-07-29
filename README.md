@@ -3,16 +3,16 @@
 A CLI tool for interacting with Large Language Models (LLMs) for code modification and file generation. Built in Rust with support for multiple providers and models.
 It is designed to work well only on a small set of files, making small improvements step by step. In such tasks, it should work relatively well on inexpensive, open-weight models like qwen/kimi.
 
-> ⚠️ **llmpal modifies files directly**:  
+> ⚠️ **llmpal modifies files directly**:
 > This tool overwrites files in place and may corrupt content. Always back up your files or use version control (e.g., git) before running the tool.
 
 > ⚠️ Always review code produced by LLM, it might contain bugs that might lead to data loss. 
 
 > **Recommended workflow**:  
-> - Make a commit before using llmpal  
-> - Execute llmpal command
-> - Test changes and commit them if they are good
-> - If changes are bad, revert them, improve the command, and try again
+> - Make a commit before using llmpal
+> - Run the llmpal command
+> - Review and test the changes and commit them if they are good
+> - If changes are bad, revert them, refine the command, and try again
 
 ## Features
 - Modify existing files (**restricted to those specified with the -f flag**) or create new files (**requires the -o flag**) using LLM instructions
@@ -24,8 +24,42 @@ It is designed to work well only on a small set of files, making small improveme
 2. Clone repository: `git clone https://github.com/00dev-org/llmpal`
 3. Build: `cd llmpal && cargo install --path .`
 
+Alternatively, download and install the provided binaries: https://github.com/00dev-org/llmpal/releases
+
+## Quickstart
+- Install llmpal 
+- Generate an OpenRouter API key: https://openrouter.ai/settings/keys
+- Set your API key: `export OPENROUTER_API_KEY=your_key_here`
+- Try example command:
+  ```bash
+  llmpal 'How old is GitHub?'
+  ```
+
+## Using Other Providers
+- Set your API key: `export GEMINI_API_KEY=your_key_here`
+- Create a `.llmpal.json` config file in your project root or home directory:
+```json
+{
+  "models": [
+    {
+      "code": "gemini",
+      "model": "gemini-2.5-flash",
+      "prompt_cost": 0.3,
+      "completion_cost": 2.5,
+      "api_url": "https://api.cerebras.ai/v1/chat/completions",
+      "api_key": "$GEMINI_API_KEY",
+      "max_tokens": 40000
+    }
+  ]
+}
+```
+- Use the configured model:
+  ```bash
+  llmpal -m gemini 'How old is GitHub?'
+  ```
+
 ## Configuration
-All configurations should be in `.llmpal.json` file placed in the project root or home directory. Configuration includes three main parameters: models, rules, and diagnostic.
+All configurations should be defined in a `.llmpal.json` file placed in the project root or home directory. The configuration includes three main parameters: `models`, `rules`, and `diagnostic`.
 
 ### Defaults
 - API endpoint: `https://openrouter.ai/api/v1/chat/completions`
@@ -87,7 +121,7 @@ Model selection follows the priority:
 
 ### Parameters Reference
 - **rules**: Array of rules that appear in the LLM system prompt, influencing LLM behavior
-- **diagnostic**: When true, logs LLM prompts and responses to `$HOME/.llmpal/prompt.log`
+- **diagnostic**: When true, logs the last LLM prompt and response to `$HOME/.llmpal/prompt.log`
 
 ## Usage
 ### Important File Restrictions
@@ -107,7 +141,7 @@ llmpal -f src/main.rs 'Implement logging'
 ```
 ### Create new file
 ```bash
-llmpal -o poem.md 'Write short poem'
+llmpal -o poem.md 'Write a short poem about Git'
 ```
 ### Debug output
 ```bash
@@ -115,9 +149,15 @@ llmpal -v --trace -f src/llm.rs 'Explain this function'
 ```
 ### Use custom model
 ```bash
-llmpal -m qwen -o poem.txt 'Write short poem'
+llmpal -m qwen -o poem.txt 'Write a short poem about Git'
 ```
 ### Multi-file modification
 ```bash
 llmpal -f src/main.rs -f src/lib.rs 'Refactor core logic'
 ```
+
+# Privacy
+Llmpal does not collect any usage data, analytics, or diagnostics about how the tool is used.
+
+The tool is designed to respect user privacy. By default, it instructs OpenRouter not to use providers that collect data (`data_collection: deny`), in accordance with OpenRouter's data compliance policies.  
+All API communications occur directly between your machine and the provider.
