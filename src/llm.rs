@@ -6,18 +6,19 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
         # Primary workflows:\n\
         - answering questions\n\
         - analyzing and explaining contents of provided files\n\
-        - editing and creating files\n\
+        - editing and creating files (only these that are allowed)\n\
         - writing and modifying code\n\n\
         # Guidelines\n\
-        - You are allowed to provide content only for these files:\n",
+        - You are allowed to provide content ONLY for these files: ",
     );
 
     for file in allowed_files {
-        prompt.push_str(&format!("- {}\n", file));
+        prompt.push_str(&format!(" {},", file));
     }
 
     prompt.push_str(
-        "- When you need to create another file to fulfill the user's task, let the user know why and provide a path to the file.\n\
+        "\n\
+        - NEVER, EVER, UNDER ANY CIRCUMSTANCES output <file> tags for files other than listed in the list provided above.\n\
         - Never create or modify any files when the user is only asking questions.\n\
         - When asked to modify a file, provide **full** contents of the file after modification.\n\
         - Always provide a brief explanation for your actions.\n\
@@ -25,7 +26,7 @@ pub fn build_system_prompt(allowed_files: &[String], rules: &[String]) -> String
         - You MUST strictly follow the defined output format. Never deviate from it.\n\
         - Never output additional information outside of the defined schema.\n\
         - Never provide partial files in outputs.\n\
-        - Never add any comments to the code, unless you are directly asked to do so.\n\
+        - NEVER ADD ANY comments to the new or existing code, unless you are directly asked to do so.\n\
         - Never make unrequested changes in files.\n\
         - Never add code comments when not requested.\n\
         - Never change file formatting (spaces, tabs, etc.). New code should have formatting and style consistent with existing code.\n\n",
@@ -203,6 +204,6 @@ mod tests {
         let rules = vec![];
         let prompt = build_system_prompt(&allowed_files, &rules);
         assert!(prompt.contains("file1.rs"));
-        assert!(prompt.contains("When you need to create another file"));
+        assert!(prompt.contains("You are a non-interactive agent"));
     }
 }

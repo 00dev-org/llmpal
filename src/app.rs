@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 #[derive(Debug)]
 pub enum LlmpalError {
@@ -196,28 +196,40 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
         utils::write_diagnostic_log(&diagnostic_log)?;
     }
 
-    let (comments, files, _) =
-        llm::parse_llm_response(&resp_text).map_err(|e| LlmpalError::ParseError(e))?;
+    let parse_result = llm::parse_llm_response(&resp_text);
+    let (comments, files, _) = match parse_result {
+        Ok(result) => result,
+        Err(e) => {
+            return handle_parse_error(&resp_text, e);
+        }
+    };
 
     if comments.is_empty() && files.is_empty() {
-        eprintln!(">> Missing or malformed LLM response. Enable diagnostics and check logs.");
+        return handle_parse_error(
+            &resp_text,
+            "Missing or malformed LLM response. See dump log for details.".to_string(),
+        );
     }
 
+    let mut disallowed_files = Vec::new();
     for (path, _) in &files {
         if !allowed_files.contains(path) {
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            let filename = format!("dump_{}.log", timestamp);
-            if let Err(e) = fs::write(&filename, &resp_text) {
-                eprintln!("Failed to save dump: {}", e);
-            }
-            return Err(LlmpalError::FileError(format!(
-                "attempting to write to disallowed file: {}",
-                path
-            )));
+            disallowed_files.push(path);
         }
+    }
+
+    if !disallowed_files.is_empty() {
+        return handle_parse_error(
+            &resp_text,
+            format!(
+                "attempting to write to disallowed file(s): {} - see dump log for details",
+                disallowed_files
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ),
+        );
     }
 
     if !comments.is_empty() {
@@ -270,6 +282,14 @@ pub async fn run(args: &config::Cli) -> Result<(), LlmpalError> {
     }
 
     Ok(())
+}
+
+fn handle_parse_error(resp_text: &str, error_msg: String) -> Result<(), LlmpalError> {
+    match utils::write_dump_log(&resp_text) {
+        Ok(filename) => eprintln!("# Created dump file: {}", filename),
+        Err(e) => eprintln!("{}", e),
+    }
+    Err(LlmpalError::ParseError(error_msg))
 }
 
 fn prepare_files(args: &&Cli) -> Result<(Vec<String>, Vec<String>), LlmpalError> {

@@ -20,3 +20,13 @@ pub fn write_diagnostic_log(content: &str) -> Result<(), LlmpalError> {
     fs::write(&log_path, content)
         .map_err(|e| LlmpalError::FileError(format!("failed to write diagnostic log: {}", e)))
 }
+
+pub fn write_dump_log(content: &str) -> Result<String, String> {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let filename = format!("dump_{}.log", timestamp);
+    fs::write(&filename, content).map_err(|e| format!("Failed to save dump log: {}", e))?;
+    Ok(filename)
+}
