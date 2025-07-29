@@ -26,6 +26,15 @@
       "completion_cost": 8.00
     },
     {
+      "code": "gemini",
+      "model": "gemini-2.5-flash",
+      "prompt_cost": 0.3,
+      "completion_cost": 2.5,
+      "api_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      "api_key": "$GEMINI_API_KEY",
+      "max_tokens": 40000
+    },
+    {
       "code": "cer",
       "model": "qwen-3-235b-a22b",
       "prompt_cost": 0.0,
@@ -33,14 +42,6 @@
       "api_url": "https://api.cerebras.ai/v1/chat/completions",
       "api_key": "$CEREBRAS_API_KEY",
       "max_tokens": 40000
-    },
-    {
-      "code": "cerebras",
-      "model": "qwen/qwen3-235b-a22b",
-      "provider": "Cerebras",
-      "prompt_cost": 0.0,
-      "completion_cost": 0.0,
-      "max_tokens": null
     },
     {
       "code": "claude",
