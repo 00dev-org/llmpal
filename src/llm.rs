@@ -219,7 +219,11 @@ mod tests {
         }
         </file>
         This is remaining text.";
-        let string = resp_text.lines().map(|l| l.strip_prefix("        ").unwrap_or(l)).collect::<Vec<&str>>().join("\n");
+        let string = resp_text
+            .lines()
+            .map(|l| l.strip_prefix("        ").unwrap_or(l))
+            .collect::<Vec<&str>>()
+            .join("\n");
         resp_text = string.as_str();
 
         let (explanation, files, remaining) = parse_llm_response(resp_text).unwrap();
@@ -252,7 +256,11 @@ mod tests {
         }
         </file>
         This is remaining text.";
-        let string = resp_text.lines().map(|l| l.strip_prefix("        ").unwrap_or(l)).collect::<Vec<&str>>().join("\n");
+        let string = resp_text
+            .lines()
+            .map(|l| l.strip_prefix("        ").unwrap_or(l))
+            .collect::<Vec<&str>>()
+            .join("\n");
         resp_text = string.as_str();
 
         let (explanation, files, remaining) = parse_llm_response(resp_text).unwrap();
