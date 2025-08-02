@@ -141,7 +141,7 @@ pub fn parse_llm_response(
             continue;
         }
 
-        if trimmed.starts_with("<file") && trimmed.ends_with(">") {
+        if line.starts_with("<file") && line.ends_with(">") {
             in_file = true;
             if let Some(pos) = trimmed.find("path=\"") {
                 let path_start = pos + 6;
@@ -159,7 +159,7 @@ pub fn parse_llm_response(
             current_file.clear();
             continue;
         }
-        if trimmed.starts_with("</file>") {
+        if line.starts_with("</file>") {
             in_file = false;
             if !current_path.is_empty() {
                 files_to_write.push((current_path.clone(), current_file.join("\n")));
@@ -205,5 +205,72 @@ mod tests {
         let prompt = build_system_prompt(&allowed_files, &rules);
         assert!(prompt.contains("file1.rs"));
         assert!(prompt.contains("You are a non-interactive agent"));
+    }
+
+    #[test]
+    fn test_parse_llm_response() {
+        let mut resp_text = "\
+        <explain>
+        This is an explanation.
+        </explain>
+        <file path=\"src/main.rs\">
+        fn main() {
+            println!(\"Hello, world!\");
+        }
+        </file>
+        This is remaining text.";
+        let string = resp_text
+            .lines()
+            .map(|l| l.strip_prefix("        ").unwrap_or(l))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        resp_text = string.as_str();
+
+        let (explanation, files, remaining) = parse_llm_response(resp_text).unwrap();
+        assert_eq!(explanation, "This is an explanation.");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].0, "src/main.rs");
+        assert_eq!(
+            files[0].1,
+            "fn main() {\n    println!(\"Hello, world!\");\n}"
+        );
+        assert_eq!(remaining, "This is remaining text.");
+    }
+
+    #[test]
+    fn test_parse_llm_response_nested_file() {
+        let mut resp_text = "\
+        <explain>
+        This is an explanation.
+        </explain>
+        <file path=\"src/main.rs\">
+        fn main() {
+            println!(\"Hello, world!\");
+            println!(\"\\\n
+            <file name=\"test.txt\">\\\n
+            \");>\
+            println!(\"Hello, world!\");
+            println!(\"\\\\\n
+            </file>\\\n
+            !\");
+        }
+        </file>
+        This is remaining text.";
+        let string = resp_text
+            .lines()
+            .map(|l| l.strip_prefix("        ").unwrap_or(l))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        resp_text = string.as_str();
+
+        let (explanation, files, remaining) = parse_llm_response(resp_text).unwrap();
+        assert_eq!(explanation, "This is an explanation.");
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].0, "src/main.rs");
+        assert_eq!(
+            files[0].1,
+            "fn main() {\n    println!(\"Hello, world!\");\n    println!(\"\\\n\n    <file name=\"test.txt\">\\\n\n    \");>println!(\"Hello, world!\");\n    println!(\"\\\\\n\n    </file>\\\n\n    !\");\n}"
+        );
+        assert_eq!(remaining, "This is remaining text.");
     }
 }
